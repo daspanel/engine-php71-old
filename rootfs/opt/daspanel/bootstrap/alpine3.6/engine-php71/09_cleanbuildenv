@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -x
+
+# Remove build packages
+apk del --purge build-deps
+#    build-base  \
+#    autoconf file g++ gcc make linux-headers libtool pcre-dev \
+#    binutils isl libatomic libc-dev musl-dev re2c libstdc++ libgcc \
+#    binutils-libs mpc1 mpfr3 gmp libgomp coreutils freetype-dev \
+#    libjpeg-turbo-dev libltdl libmcrypt-dev libpng-dev imap-dev openssl-dev \
+#    php7-dev yaml-dev shadow 
+
+

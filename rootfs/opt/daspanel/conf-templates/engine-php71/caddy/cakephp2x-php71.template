@@ -1,0 +1,26 @@
+# SITE NAME = {{ (getenv "SITEINFO" | json).sitedescription }}
+# SITE TYPE = {{ (getenv "SITECFG" | json).sitetype }}
+{{ (getenv "SITECFG" | json).name }}:443 {
+    errors stdout
+    log / stdout "[DASPANEL-HTTP-ACCESSLOG] {>Referer} {remote} {when} {method} {uri} {proto} {status} {size} {>User-Agent} {latency} {request}" 
+    root /opt/daspanel/data/{{ getenv "DASPANEL_SYS_UUID" }}/{{ (getenv "SITECFG" | json).dir }}/app/webroot
+    gzip
+    tls self_signed
+    fastcgi / localhost:9000 php
+
+    # Begin - Security
+    ## End - Security
+
+    # global rewrite should come last.
+    rewrite {
+        to {path} {path}/ /index.php?{path}&{query}
+    }
+    header / {
+        X-Frame-Options        SAMEORIGIN
+        X-Content-Type-Options nosniff
+        X-XSS-Protection       "1; mode=block"
+        Referrer-Policy        no-referrer-when-downgrade
+        Strict-Transport-Security "max-age=31536000; includeSubdomains; preload"
+        -X-Powered-By
+    }
+}

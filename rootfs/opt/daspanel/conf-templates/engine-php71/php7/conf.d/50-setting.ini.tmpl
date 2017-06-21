@@ -1,0 +1,35 @@
+error_reporting=1
+display_errors=0
+log_errors=1
+user_ini.filename=.user.ini
+realpath_cache_size=2
+cgi.check_shebang_line=0
+date.timezone={{getenv "PHP_DATE_TIMEZONE" "UTC"}}
+short_open_tag=Off
+session.auto_start=Off
+max_execution_time={{getenv "PHP_MAX_EXECUTION_TIME" "3600"}}
+max_input_time={{getenv "PHP_MAX_INPUT_TIME" "3600"}}
+memory_limit={{getenv "PHP_MEMORY_LIMIT" "128"}}M
+upload_max_filesize={{getenv "PHP_UPLOAD_MAX_FILESIZE" "512M"}}
+post_max_size={{getenv "PHP_POST_MAX_SIZE" "512M"}}
+session.save_path={{getenv "PHP_SESSION_PATH" "/tmp"}}
+file_uploads=On
+
+opcache.enable=1
+opcache.enable_cli=0
+opcache.save_comments=1
+opcache.interned_strings_buffer=8
+opcache.fast_shutdown=1
+opcache.validate_timestamps=2
+opcache.revalidate_freq=60
+opcache.use_cwd=1
+opcache.max_accelerated_files=100000
+opcache.max_wasted_percentage=5
+opcache.memory_consumption={{getenv "PHP_OPCACHE_MEMORY_CONSUMPTION" "32"}}M
+opcache.consistency_checks=0
+opcache.huge_code_pages=1
+
+;opcache.file_cache_only=1
+;opcache.file_cache=/html/.opcache
+;opcache.file_cache_consistency_checks=1
+

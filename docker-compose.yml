@@ -1,0 +1,140 @@
+version: '2'
+services:
+    daspanel-lb:
+        image: daspanel/load-balancer-caddy
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - frontend
+            - backend
+        ports:
+            - "80:80"
+            - "443:443"
+        env_file:
+            - daspanel.env
+    daspanel-redis:
+        image: daspanel/redis:0.4.0
+        networks:
+            - backend
+        volumes:
+            - ./data:/opt/daspanel/data
+        expose:
+            - "6379"
+        env_file:
+            - daspanel.env
+    daspanel-api:
+        image: daspanel/api-server
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - frontend
+            - backend
+        environment:
+            - LOCAL_USER_ID=1000
+            - GUNICORN_APP_DIR=/opt/daspanel/apps/apiserver/api_server
+            - GUNICORN_CMD=/opt/daspanel/apps/apiserver/api_server/wsgi_gunicorn --bind=0.0.0.0:8080 --user=daspanel --group=daspanel api-connexion:app Daspanel_Api_Server
+            - DASPANEL_WAIT_FOR_API=NO
+        env_file:
+            - daspanel.env
+        expose:
+            - "8080"
+    daspanel-storage:
+        image: daspanel/minio-fileserver
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - backend
+        expose:
+            - "9000"
+        env_file:
+            - daspanel.env
+    daspanel-services:
+        image: daspanel/daspanel-services
+        networks:
+            - backend
+        expose:
+            - "443"
+        env_file:
+            - daspanel.env
+    daspanel-mail-catcher:
+        image: daspanel/mailhog-mail-catcher
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - frontend
+            - backend
+        env_file:
+            - daspanel.env
+    daspanel-mysql:
+        image: daspanel/mariadb
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - backend
+        expose:
+            - "3306"
+        environment:
+            - MARIADB_REMOTE_ROOT=true
+        env_file:
+            - daspanel.env
+    daspanel-panel:
+        image: daspanel/panel
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - frontend
+            - backend
+        environment:
+            - GUNICORN_APP_DIR=/opt/daspanel/apps/panel/daspanel_web
+            - GUNICORN_CMD=su-exec daspanel:daspanel python /opt/daspanel/apps/panel/wsgi.py
+        env_file:
+            - daspanel.env
+        expose:
+            - "5000"
+    daspanel-engine-php56:
+        image: daspanel/engine-php56
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - backend
+        expose:
+            - "443"
+        env_file:
+            - daspanel.env
+    daspanel-engine-php70:
+        image: daspanel/engine-php70
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - backend
+        expose:
+            - "443"
+        env_file:
+            - daspanel.env
+    daspanel-engine-php71:
+        image: daspanel/engine-php71-dev
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - backend
+        expose:
+            - "443"
+        env_file:
+            - daspanel.env
+    daspanel-engine-static:
+        image: daspanel/engine-static
+        volumes:
+            - ./data:/opt/daspanel/data
+        networks:
+            - backend
+        expose:
+            - "443"
+        env_file:
+            - daspanel.env
+networks:  
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+
+

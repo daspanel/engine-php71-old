@@ -1,0 +1,54 @@
+#!/usr/bin/with-contenv sh
+
+# Installation UUID must be informed
+if [ -z "$DASPANEL_SYS_UUID" ]; then
+    echo "***"
+    echo "ERROR: You must set the env variable DASPANEL_SYS_UUID to a valid UUID"
+    echo "***"
+    exit 1
+fi
+
+case "$DASPANEL_WAIT_FOR_API" in
+    YES|yes|Yes)
+        echo "[DASPANEL] Waiting 60 seconds for API: $0" >&2
+        /opt/daspanel/bin/wait-for-api -t 60 $DASPANEL_SYS_APISERVER/info/status
+        result=$?
+        if [ ! $result -eq 0 ] ; then
+            echo "[DASPANEL] Can not connect to API: $DASPANEL_SYS_APISERVER/info/status" >&2
+            exit 1
+        fi
+        ;;
+    *) 
+        echo "[DASPANEL] Container not need to wait API become online: $0" >&2
+        exit 1
+        ;;
+esac
+
+# Get system configs from API server and set env variables
+SYSCFG=$(wget -O- --header=Content-Type:application/json --header="Authorization: $DASPANEL_SYS_APIKEY" "$DASPANEL_SYS_APISERVER/tenants/$DASPANEL_SYS_UUID")
+result=$?
+if [ ! $result -eq 0 ] ; then
+    echo "[DASPANEL] Unable to get tenant configuration from API server: $0" >&2
+    exit 1
+fi
+export DASPANEL_SYS_ADMIN=`echo $SYSCFG | /opt/daspanel/bin/jq -r '.sys.admin'`
+
+STARTCMD="su-exec daspanel:daspanel /usr/sbin/caddy --conf=/etc/caddy/caddyfile --log=stdout"
+
+[[ -z "${CADDY_AGREE}" ]] && CADDY_AGREE="true"
+[[ -z "${CADDY_CA}" ]] && CADDY_CA="https://acme-staging.api.letsencrypt.org/directory"
+[[ -z "${CADDY_CPU}" ]] && CADDY_CPU="100%"
+[[ -z "${CADDY_EMAIL}" ]] && CADDY_EMAIL="$DASPANEL_SYS_ADMIN"
+[[ -z "${CADDY_GRACE}" ]] && CADDY_GRACE="5s"
+[[ -z "${CADDY_HTTP2}" ]] && CADDY_HTTP2="true"
+[[ -z "${CADDY_QUIET}" ]] && CADDY_QUIET="false"
+
+[[ -n "${CADDY_AGREE}" ]] && STARTCMD="${STARTCMD} -agree=${CADDY_AGREE}"
+[[ -n "${CADDY_CA}" ]] && STARTCMD="${STARTCMD} -ca=${CADDY_CA}"
+[[ -n "${CADDY_CPU}" ]] && STARTCMD="${STARTCMD} -cpu=${CADDY_CPU}"
+[[ -n "${CADDY_EMAIL}" ]] && STARTCMD="${STARTCMD} -email=${CADDY_EMAIL}"
+[[ -n "${CADDY_GRACE}" ]] && STARTCMD="${STARTCMD} -grace=${CADDY_GRACE}"
+[[ -n "${CADDY_HTTP2}" ]] && STARTCMD="${STARTCMD} -http2=${CADDY_HTTP2}"
+[[ -n "${CADDY_QUIET}" ]] && STARTCMD="${STARTCMD} -quiet=${CADDY_QUIET}"
+
+exec ${STARTCMD}

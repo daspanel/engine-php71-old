@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+function php-fpm() {
+
+    if [ -d "/opt/daspanel/data/$DASPANEL_SYS_UUID/conf/php71/etc/php71/php-fpm.d/pools" ]; then
+        if [ -d "/etc/php7/php-fpm.d/pools" ]; then
+            rm -Rf /etc/php7/php-fpm.d/pools
+        fi
+        ln -sf /opt/daspanel/data/$DASPANEL_SYS_UUID/conf/php71/etc/php71/php-fpm.d/pools /etc/php7/php-fpm.d/pools
+    else
+        if [ ! -d "/etc/php7/php-fpm.d/pools" ]; then
+	        mkdir -p /etc/php7/php-fpm.d/pools
+        fi
+    fi
+
+    # Setting the php-fpm configs
+    TOTALCPU=$(grep -c ^processor /proc/cpuinfo); echo "TOTALCPU=${TOTALCPU}"
+    TOTALMEM=$(free -m | awk '/^Mem:/{print $2}'); echo "TOTALMEM=${TOTALMEM}"
+    if [[ "$TOTALCPU" -le "2" ]]; then TOTALCPU=2; fi
+
+    if [[ -z $PHP_START_SERVERS ]]; then export PHP_START_SERVERS=$(($TOTALCPU / 2)) && echo "PHP_START_SERVERS=${PHP_START_SERVERS}"; fi
+    if [[ -z  $PHP_MIN_SPARE_SERVERS ]]; then export PHP_MIN_SPARE_SERVERS=$(($TOTALCPU / 2)) && echo "PHP_MIN_SPARE_SERVERS=${PHP_MIN_SPARE_SERVERS}"; fi
+    if [[ -z  $PHP_MAX_SPARE_SERVERS ]]; then export PHP_MAX_SPARE_SERVERS="${TOTALCPU}" && echo "PHP_MAX_SPARE_SERVERS=${PHP_MAX_SPARE_SERVERS}"; fi
+    if [[ -z  $PHP_MEMORY_LIMIT ]]; then export PHP_MEMORY_LIMIT=$(($TOTALMEM / 2)) && echo "PHP_MEMORY_LIMIT=${PHP_MEMORY_LIMIT}"; fi
+    if [[ -z  $PHP_OPCACHE_MEMORY_CONSUMPTION ]]; then export PHP_OPCACHE_MEMORY_CONSUMPTION=$(($TOTALMEM / 6)) && echo "PHP_OPCACHE_MEMORY_CONSUMPTION=${PHP_OPCACHE_MEMORY_CONSUMPTION}"; fi
+    if [[ -z  $PHP_MAX_CHILDREN ]]; then export PHP_MAX_CHILDREN=$(($TOTALCPU * 2)) && echo "PHP_MAX_CHILDREN=${PHP_MAX_CHILDREN}"; fi
+
+    if [[ -z "${PHP_POST_MAX_SIZE}" ]]; then export PHP_POST_MAX_SIZE="512M" && echo "PHP_POST_MAX_SIZE=${PHP_POST_MAX_SIZE}"; fi
+    if [[ -z "${PHP_UPLOAD_MAX_FILESIZE}" ]]; then export PHP_UPLOAD_MAX_FILESIZE="512M" && echo "PHP_UPLOAD_MAX_FILESIZE=${PHP_UPLOAD_MAX_FILESIZE}"; fi
+    if [[ -z "${PHP_MAX_EXECUTION_TIME}" ]]; then export PHP_MAX_EXECUTION_TIME="3600" && echo "PHP_MAX_EXECUTION_TIME=${PHP_MAX_EXECUTION_TIME}"; fi
+    if [[ -z "${PHP_MAX_INPUT_TIME}" ]]; then export PHP_MAX_INPUT_TIME="3600" && echo "PHP_MAX_INPUT_TIME=${PHP_MAX_INPUT_TIME}"; fi
+    if [[ -z "${PHP_DATE_TIMEZONE}" ]]; then export PHP_DATE_TIMEZONE="UTC" && echo "PHP_DATE_TIMEZONE=${PHP_DATE_TIMEZONE}"; fi
+    if [[ -z "${PHP_LOG_LEVEL}" ]]; then export PHP_LOG_LEVEL="warning" && echo "PHP_LOG_LEVEL=${PHP_LOG_LEVEL}"; fi
+    if [[ -z "${PHP_MAX_REQUESTS}" ]]; then export PHP_MAX_REQUESTS="500" && echo "PHP_MAX_REQUESTS=${PHP_MAX_REQUESTS}"; fi
+    if [[ -z "${PHP_PROCESS_IDLE_TIMEOUT}" ]]; then export PHP_PROCESS_IDLE_TIMEOUT="10s" && echo "PHP_PROCESS_IDLE_TIMEOUT=${PHP_PROCESS_IDLE_TIMEOUT}"; fi
+
+
+    # Set the listening port
+    if [[ -z $PHP_FPM_PORT ]]; then echo "PHP-FPM port not set. Default to 9000..." && export PHP_FPM_PORT=9000; else echo "OK, PHP-FPM port is set to $PHP_FPM_PORT"; fi
+
+    # Set PHP FPM root dir
+    if [[ -z $PHP_CHDIR ]]; then export PHP_CHDIR=/opt/daspanel/data/${DASPANEL_SYS_UUID}/content; fi
+    mkdir -p "${PHP_CHDIR}"
+
+    # Set app root
+    if [[ -z $APP_DOCROOT ]]; then export APP_DOCROOT=${PHP_CHDIR}; fi
+    mkdir -p "${APP_DOCROOT}"
+
+    # Set session path
+    if [[ -z $PHP_SESSION_PATH ]]; then export PHP_SESSION_PATH=/opt/daspanel/data/${DASPANEL_SYS_UUID}/sessions; fi
+    mkdir -p "${PHP_SESSION_PATH}"
+
+    /opt/daspanel/bin/gomplate -d cfg=$DASPANEL_SYS_APISERVER/tenants/$DASPANEL_SYS_UUID \
+        -H "cfg=Authorization: $DASPANEL_SYS_APIKEY" \
+        < /opt/daspanel/conf-templates/engine-php71/php7/php-fpm.d/00-docker.conf.tmpl \
+        > /etc/php7/php-fpm.d/00-docker.conf
+    echo "[DASPANEL-$DASPANEL_CONTAINER_TYPE] Generated config: /etc/php7/php-fpm.d/00-docker.conf" >&2
+
+    /opt/daspanel/bin/gomplate -d cfg=$DASPANEL_SYS_APISERVER/tenants/$DASPANEL_SYS_UUID \
+        -H "cfg=Authorization: $DASPANEL_SYS_APIKEY" \
+        < /opt/daspanel/conf-templates/engine-php71/php7/php-fpm.d/99-docker.conf.tmpl \
+        > /etc/php7/php-fpm.d/99-docker.conf
+    echo "[DASPANEL-$DASPANEL_CONTAINER_TYPE] Generated config: /etc/php7/php-fpm.d/99-docker.conf" >&2
+
+    /opt/daspanel/bin/gomplate -d cfg=$DASPANEL_SYS_APISERVER/tenants/$DASPANEL_SYS_UUID \
+        -H "cfg=Authorization: $DASPANEL_SYS_APIKEY" \
+        < /opt/daspanel/conf-templates/engine-php71/php7/conf.d/50-setting.ini.tmpl \
+        > /etc/php7/conf.d/50-setting.ini
+    echo "[DASPANEL-$DASPANEL_CONTAINER_TYPE] Generated config: /etc/php7/conf.d/50-setting.ini" >&2
+
+    /opt/daspanel/bin/gomplate -d cfg=$DASPANEL_SYS_APISERVER/tenants/$DASPANEL_SYS_UUID \
+        -H "cfg=Authorization: $DASPANEL_SYS_APIKEY" \
+        < /opt/daspanel/conf-templates/engine-php71/php7/php-fpm.conf.tmpl \
+        > /etc/php7/php-fpm.conf
+    echo "[DASPANEL-$DASPANEL_CONTAINER_TYPE] Generated config: /etc/php7/php-fpm.conf" >&2
+
+}
+
+function permissions() {
+
+    echo "[DASPANEL-$DASPANEL_CONTAINER_TYPE] Setting ownership and permissions on APP_DOCROOT and CACHE_PREFIX... "
+    find ${APP_DOCROOT} ! -user daspanel -exec /usr/bin/env bash -c "chown daspanel:daspanel {}" \;
+    find ${PHP_CHDIR} ! -user daspanel -exec /usr/bin/env bash -c "chown daspanel:daspanel {}" \;
+    find ${PHP_SESSION_PATH} ! -user daspanel -exec /usr/bin/env bash -c "chown daspanel:daspanel {}" \;
+    find ${CACHE_PREFIX}/fastcgi ! -user daspanel -exec /usr/bin/env bash -c "chown daspanel:daspanel {}" \;
+    find ${CACHE_PREFIX}/php-fpm7 ! -user daspanel -exec /usr/bin/env bash -c "chown daspanel:daspanel {}" \;
+
+    find ${APP_DOCROOT} ! -perm 755 -type d -exec /usr/bin/env bash -c "chmod 755 {}" \;
+    find ${APP_DOCROOT} ! -perm 644 -type f -exec /usr/bin/env bash -c "chmod 644 {}" \;
+
+    find ${CACHE_PREFIX}/fastcgi ! -perm 755 -type d -exec /usr/bin/env bash -c "chmod 755 {}" \;
+    find ${CACHE_PREFIX}/fastcgi ! -perm 755 -type f -exec /usr/bin/env bash -c "chmod 755 {}" \;
+
+    find ${CACHE_PREFIX}/php-fpm7 ! -perm 755 -type d -exec /usr/bin/env bash -c "chmod 755 {}" \;
+    find ${CACHE_PREFIX}/php-fpm7 ! -perm 755 -type f -exec /usr/bin/env bash -c "chmod 755 {}" \;
+
+    find ${PHP_CHDIR} ! -perm 755 -type d -exec /usr/bin/env bash -c "chmod 755 {}" \;
+    find ${PHP_CHDIR} ! -perm 644 -type f -exec /usr/bin/env bash -c "chmod 644 {}" \;
+
+    find ${PHP_SESSION_PATH} ! -perm 755 -type d -exec /usr/bin/env bash -c "chmod 755 {}" \;
+    find ${PHP_SESSION_PATH} ! -perm 644 -type f -exec /usr/bin/env bash -c "chmod 644 {}" \;
+
+
+}
+
+function run() {
+    php-fpm
+    permissions
+    echo "[DASPANEL-$DASPANEL_CONTAINER_TYPE] OK: All config processes have completed. Service is ready to be started..."
+}
+
+# Create cache dir
+mkdir -p "${CACHE_PREFIX}"/fastcgi/
+mkdir -p "${CACHE_PREFIX}"/php-fpm7/
+
+# Remove defaul PHP-FPM default configs
+rm -Rf /etc/php7/php-fpm.d/*
+
+# Get Browsecap
+echo "[DASPANEL-ENGINE-PHP71] Installing latest: https://browscap.org/stream?q=PHP_BrowsCapINI" >&2
+mkdir -p /etc/php7/extra
+wget -O /etc/php7/extra/browscap.ini "https://browscap.org/stream?q=PHP_BrowsCapINI"
+
+# Generate config
+run
+

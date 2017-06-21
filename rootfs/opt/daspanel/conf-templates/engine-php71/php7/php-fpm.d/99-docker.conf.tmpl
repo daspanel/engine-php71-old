@@ -1,0 +1,16 @@
+[global]
+daemonize = no
+
+[daspanel]
+listen = [::]:{{getenv "PHP_FPM_PORT" "9000"}}
+listen.mode = 0666
+listen.owner = daspanel
+listen.group = daspanel
+chdir = {{getenv "PHP_CHDIR" "/opt/daspanel/data"}}
+pm = dynamic
+pm.max_children = {{getenv "PHP_MAX_CHILDREN" "4"}}
+pm.max_requests = 500
+pm.start_servers = {{getenv "PHP_START_SERVERS" "1"}}
+pm.min_spare_servers = {{getenv "PHP_MIN_SPARE_SERVERS" "1"}}
+pm.max_spare_servers = {{getenv "PHP_MAX_SPARE_SERVERS" "2"}}
+
